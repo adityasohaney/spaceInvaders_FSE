@@ -243,95 +243,104 @@ function movePlayer() {
 // Fires bullets from the player
 function shootBullets() {
   if (keyIsDown(32) && frameSinceLastShot >= shootInterval) {
-    bullets.push({ x: player.x + player.width / 2 -3, y: player.y, speed: -7 });
+    bullets.push({ x: player.x + player.width / 2 - 2, y: player.y });
     shootSound.play(); // Play shooting sound
-    frameSinceLastShot = 0; // Reset shooting interval
-  } else {
-    frameSinceLastShot++;
+    frameSinceLastShot = 0;
   }
+  frameSinceLastShot++;
 }
 
 // Moves player bullets upward
 function moveBullets() {
   for (let i = bullets.length - 1; i >= 0; i--) {
-    bullets[i].y += bullets[i].speed;
+    bullets[i].y -= 7;
     if (bullets[i].y < 0) {
-      bullets.splice(i, 1); // Remove bullets that go off-screen
+      bullets.splice(i, 1);
     }
   }
 }
 
-// Draws bullets fired by the player
+// Draws player bullets
 function drawBullets() {
-  fill(255, 255, 0); // Yellow bullets
-  for (let bullet of bullets) {
-    ellipse(bullet.x, bullet.y, 5, 10);
-  }
+  fill(255, 0, 0);
+  bullets.forEach((bullet) => {
+    rect(bullet.x, bullet.y, 4, 10);
+  });
 }
 
-// Moves invaders horizontally and vertically
+// Moves invaders and adjusts their positions
 function moveInvaders() {
-  let edgeReached = false;
-  for (let invader of invaders) {
+  invaders.forEach((invader) => {
     if (invader.isAlive) {
-      invader.x += invaderSpeed * direction;
-      if (invader.x <= 0 || invader.x >= width - invaderWidth) {
-        edgeReached = true;
-      }
+      invader.y += invaderSpeed * 0.1; // Move slightly downward
+      invader.x += random(-1, 1); // Random horizontal movement
     }
-  }
-  if (edgeReached) {
-    direction *= -1;
-    for (let invader of invaders) {
-      invader.y += 20; // Move down when edge is reached
-    }
-  }
+  });
 }
 
-// Draws invaders on the screen
+// Draws invaders
 function drawInvaders() {
-  for (let invader of invaders) {
+  invaders.forEach((invader) => {
     if (invader.isAlive) {
       image(alienImg, invader.x, invader.y, invader.width, invader.height);
     }
-  }
+  });
 }
 
-// Creates asteroids at random intervals
+// Handles asteroid creation, movement, and drawing
 function createAsteroids() {
-  if (random(1) < 0.01) { // Adjust frequency with this value
+  if (frameCount % (120 - difficulty * 10) === 0) {
     asteroids.push({
       x: random(width),
       y: 0,
-      speed: random(2, 5),
-      size: random(15, 30),
+      size: random(20, 50),
+      speed: random(1 + difficulty, 3 + difficulty),
     });
   }
 }
 
-// Moves asteroids downward
 function moveAsteroids() {
   for (let i = asteroids.length - 1; i >= 0; i--) {
     asteroids[i].y += asteroids[i].speed;
     if (asteroids[i].y > height) {
-      asteroids.splice(i, 1); // Remove asteroids that go off-screen
+      asteroids.splice(i, 1);
     }
   }
 }
 
-// Draws asteroids
 function drawAsteroids() {
-  fill(150, 150, 150); // Gray asteroids
-  for (let asteroid of asteroids) {
+  fill(150);
+  asteroids.forEach((asteroid) => {
     ellipse(asteroid.x, asteroid.y, asteroid.size);
+  });
+}
+
+// Initializes background stars
+function initializeStars() {
+  for (let i = 0; i < 100; i++) {
+    stars.push({ x: random(width), y: random(height), size: random(1, 3), speed: random(0.5, 2) });
   }
 }
 
-// Checks for collisions between objects
+// Displays and animates background stars
+function displayStars() {
+  fill(255);
+  noStroke();
+  stars.forEach((star) => {
+    ellipse(star.x, star.y, star.size);
+    star.y += star.speed;
+    if (star.y > height) {
+      star.y = 0;
+      star.x = random(width);
+    }
+  });
+}
+
+// Checks for collisions between bullets, invaders, and player
 function checkCollisions() {
-  // Player bullets with invaders
-  for (let bullet of bullets) {
-    for (let invader of invaders) {
+  // Check for bullet collisions with invaders
+  bullets = bullets.filter((bullet) => {
+    return !invaders.some((invader) => {
       if (
         invader.isAlive &&
         bullet.x > invader.x &&
@@ -340,60 +349,28 @@ function checkCollisions() {
         bullet.y < invader.y + invader.height
       ) {
         invader.isAlive = false;
-        score += 10; // Increase score
         explosionSound.play(); // Play explosion sound
-        bullets.splice(bullets.indexOf(bullet), 1);
-        break;
+        score += 10;
+        return true;
       }
-    }
-  }
+      return false;
+    });
+  });
 
-  // Player with asteroids
-  for (let asteroid of asteroids) {
+  // Check for asteroid collisions with the player
+  asteroids.forEach((asteroid, index) => {
     if (
-      asteroid.x > player.x &&
       asteroid.x < player.x + player.width &&
-      asteroid.y > player.y &&
-      asteroid.y < player.y + player.height
+      asteroid.x + asteroid.size > player.x &&
+      asteroid.y < player.y + player.height &&
+      asteroid.y + asteroid.size > player.y
     ) {
-      lives--;
       asteroidHitSound.play(); // Play asteroid hit sound
-      asteroids.splice(asteroids.indexOf(asteroid), 1);
+      asteroids.splice(index, 1);
+      lives -= 1;
       if (lives <= 0) {
         gameState = 'gameover';
       }
     }
-  }
-
-  // Invaders reaching the player
-  for (let invader of invaders) {
-    if (
-      invader.isAlive &&
-      invader.y + invader.height > player.y
-    ) {
-      gameState = 'gameover';
-      break;
-    }
-  }
+  });
 }
-
-// Initializes the starry background
-function initializeStars() {
-  for (let i = 0; i < 100; i++) {
-    stars.push({ x: random(width), y: random(height), size: random(1, 3) });
-  }
-}
-
-// Displays animated stars
-function displayStars() {
-  fill(255);
-  for (let star of stars) {
-    ellipse(star.x, star.y, star.size);
-    star.y += 1;
-    if (star.y > height) {
-      star.y = 0;
-      star.x = random(width);
-    }
-  }
-}
-
